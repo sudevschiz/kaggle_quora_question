@@ -1,0 +1,102 @@
+---
+title: "R Notebook"
+output:
+  html_document: default
+  html_notebook: default
+---
+
+```{r setup}
+
+library(data.table)
+
+```
+
+```{r}
+
+train <- fread("../Data/train.csv",header = T,stringsAsFactors = T)
+test <- fread("../Data/test.csv",header = T,stringsAsFactors = T)
+
+```
+###Summary
+```{r}
+str(train)
+str(test)
+```
+404290 unique IDs. 
+But onlu 290654 factors in qid1. Similarly in qid2.
+*That means that lot of questions are repeating in q1 and q2*
+*Need to convert questions into character type*
+
+
+###Change data types
+```{r}
+train$question1 <- as.character(train$question1)
+train$question2 <- as.character(train$question2)
+test$question1 <- as.character(test$question1)
+test$question2 <- as.character(test$question2)
+
+```
+
+
+##EDA on train data
+
+
+```{r}
+summary(train)
+```
+No NAs in any of the columns. 
+The question with qid1==8461 is repeating 50 times. 
+```{r}
+train[train$qid1 == 8461,c(4,5)][1:10]
+hist(table(train$qid1)[table(train$qid1)>=3],breaks = 20,probability = T)
+sum(table(train$qid1)>=3)/nrow(train)
+
+
+```
+~5% of the questions are repeated more than 3 times. Maybe they can be marked as duplicates.
+
+```{r}
+barplot(table(train$is_duplicate))
+```
+Non duplicates are more than duplicates. Makes sense.
+
+Are the questions which are repeated more than 3 times, duplicates or not duplicaes?
+
+```{r}
+freq5 <- as.data.frame(table(train$qid1)[table(train$qid1) >10])
+barplot(table(train[train$qid1 %in% freq5$Var1,]$is_duplicate))
+
+```
+What about qid2 ?
+```{r}
+hist(table(train$qid2)[table(train$qid2)>=3],breaks = 20,probability = T)
+sum(table(train$qid2)>=3)/nrow(train)
+
+
+```
+```{r}
+freq5 <- as.data.frame(table(train$qid2)[table(train$qid1) >20])
+barplot(table(train[train$qid2 %in% freq5$Var1,]$is_duplicate))
+
+```
+
+Looks like duplicates in qid2 is not giving enough separability. So, inference is that when qid1 is present more than 10 times in the entire data set, mark those rows are duplicated. 
+```{r}
+#Check string length dependence
+
+train$charlength1 <- nchar(train$question1)
+train$charlength2 <- nchar(train$question2)
+
+dt <- train[,j = (Count = .N),by = c("is_duplicate","charlength1")]
+dt <- dt[order(charlength1)]
+
+plot(dt$is_duplicate,dt$charlength1)
+
+```
+Shorter questions are slightly more likely to be duplicate. But, doesn't look like it brings strong separateability. Still, could be one of the features in the classification model.
+
+```{r}
+train$nchar1 <- nchar(train$question1)
+train$nchar2 <- nchar(train$question2)
+```
+
